@@ -43,10 +43,6 @@ class DataConfig:
     augmentation: AugmentationConfig = AugmentationConfig()
 
 
-@dataclass
-class ConvolutionConfig:
-    pass
-
 
 @dataclass
 class BiDirectionalConfig:

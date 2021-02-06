@@ -14,4 +14,4 @@ checkpoint:
   save_top_k: 1
   monitor: "wer"
   verbose: True
-  dirpath: model_an4_conv/
+  dirpath: model_an4/
