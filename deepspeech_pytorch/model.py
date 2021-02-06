@@ -135,6 +135,22 @@ class Lookahead(nn.Module):
                + ', context=' + str(self.context) + ')'
 
 
+class BatchConv(nn.Module):
+    def __init__(self, input_size, lookahead_context):
+        super(BatchConv, self).__init__()
+        self.input_size = input_size
+        self.lookahead_context = lookahead_context
+        self.conv = nn.Sequential(
+            SequenceWise(nn.BatchNorm1d(self.input_size)),
+            Lookahead(self.input_size, context=self.lookahead_context),
+            nn.Hardtanh(0, 20, inplace=True)
+        )
+
+    def forward(self, x):
+        x = self.conv(x)
+        return x
+
+
 class DeepSpeech(pl.LightningModule):
     def __init__(self,
                  labels: List,
@@ -187,11 +203,13 @@ class DeepSpeech(pl.LightningModule):
         )
 
     def _conv_construct(self, input_size):
-        deep_conv = nn.Sequential(
-            # consider adding batch norm?
-            Lookahead(input_size, context=self.model_cfg.lookahead_context),
-            nn.Hardtanh(0, 20, inplace=True)
-        )
+        # deep_conv = BatchConv(input_size, self.model_cfg.lookahead_context)
+
+        deep_conv = nn.Sequential(*(
+                BatchConv(input_size,
+                          self.model_cfg.lookahead_context)
+                for _ in range(self.model_cfg.depth)
+            ))
 
         fully_connected = nn.Sequential(
             nn.BatchNorm1d(input_size),
@@ -248,7 +266,9 @@ class DeepSpeech(pl.LightningModule):
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
         if self.convolutional:
-            x = self.deep_conv(x)
+            # x = self.deep_conv(x)
+            for conv in self.deep_conv:
+                x = conv(x)
         else:
             for rnn in self.rnns:
                 x = rnn(x, output_lengths)

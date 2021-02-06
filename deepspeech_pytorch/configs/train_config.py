@@ -9,7 +9,7 @@ from deepspeech_pytorch.enums import SpectrogramWindow, RNNType
 
 defaults = [
     {"optim": "adam"},
-    {"model": "bidirectional"},
+    {"model": "convolution"},
     {"checkpoint": "file"}
 ]
 
@@ -46,6 +46,7 @@ class DataConfig:
 @dataclass
 class ConvolutionConfig:
     lookahead_context: int = 20  # The lookahead context for convolution after RNN layers
+    depth: int = 1
 
 
 @dataclass
