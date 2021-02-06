@@ -2,10 +2,10 @@
 data:
   train_path: data/an4_train_manifest_small.json
   val_path: data/an4_train_manifest_small.json
-  batch_size: 8
+  batch_size: 32
   num_workers: 8
 trainer:
-  max_epochs: 1
+  max_epochs: 15
   gpus: 0
   gradient_clip_val: 400  # Norm cutoff to prevent explosion of gradients
   plugins: ddp_sharded

@@ -44,6 +44,11 @@ class DataConfig:
 
 
 @dataclass
+class ConvolutionConfig:
+    pass
+
+
+@dataclass
 class BiDirectionalConfig:
     rnn_type: RNNType = RNNType.lstm  # Type of RNN to use in model
     hidden_size: int = 64  # Hidden size of RNN Layer
