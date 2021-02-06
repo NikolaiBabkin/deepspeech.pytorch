@@ -45,7 +45,6 @@ class DataConfig:
 
 @dataclass
 class ConvolutionConfig:
-    depth: int = 1
     pass
 
 
