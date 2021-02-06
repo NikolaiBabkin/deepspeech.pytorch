@@ -45,7 +45,7 @@ class DataConfig:
 
 @dataclass
 class ConvolutionConfig:
-    pass
+    lookahead_context: int = 20  # The lookahead context for convolution after RNN layers
 
 
 @dataclass

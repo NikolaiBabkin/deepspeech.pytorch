@@ -10,7 +10,7 @@ from torch.cuda.amp import autocast
 from torch.nn import CTCLoss
 
 from deepspeech_pytorch.configs.train_config import SpectConfig, BiDirectionalConfig, OptimConfig, AdamConfig, \
-    SGDConfig, UniDirectionalConfig
+    SGDConfig, UniDirectionalConfig, ConvolutionConfig
 from deepspeech_pytorch.decoder import GreedyDecoder
 from deepspeech_pytorch.validation import CharErrorRate, WordErrorRate
 
@@ -138,7 +138,7 @@ class Lookahead(nn.Module):
 class DeepSpeech(pl.LightningModule):
     def __init__(self,
                  labels: List,
-                 model_cfg: Union[UniDirectionalConfig, BiDirectionalConfig],
+                 model_cfg: Union[UniDirectionalConfig, BiDirectionalConfig, ConvolutionConfig],
                  precision: int,
                  optim_cfg: Union[AdamConfig, SGDConfig],
                  spect_cfg: SpectConfig
@@ -149,10 +149,10 @@ class DeepSpeech(pl.LightningModule):
         self.precision = precision
         self.optim_cfg = optim_cfg
         self.spect_cfg = spect_cfg
+        self.convolutional = True if OmegaConf.get_type(model_cfg) is ConvolutionConfig else False
         self.bidirectional = True if OmegaConf.get_type(model_cfg) is BiDirectionalConfig else False
 
         self.labels = labels
-        num_classes = len(self.labels)
 
         self.conv = MaskConv(nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=(41, 11), stride=(2, 2), padding=(20, 5)),
@@ -168,9 +168,46 @@ class DeepSpeech(pl.LightningModule):
         rnn_input_size = int(math.floor(rnn_input_size + 2 * 10 - 21) / 2 + 1)
         rnn_input_size *= 32
 
-        self.rnns = nn.Sequential(
+        if self.convolutional is False:
+            self.rnns, self.lookahead, self.fc = self._rnn_construct(rnn_input_size)
+
+        else:
+            self.deep_conv, self.fc = self._conv_construct(rnn_input_size)
+
+        self.inference_softmax = InferenceBatchSoftmax()
+        self.criterion = CTCLoss(blank=self.labels.index('_'), reduction='sum', zero_infinity=True)
+        self.evaluation_decoder = GreedyDecoder(self.labels)  # Decoder used for validation
+        self.wer = WordErrorRate(
+            decoder=self.evaluation_decoder,
+            target_decoder=self.evaluation_decoder
+        )
+        self.cer = CharErrorRate(
+            decoder=self.evaluation_decoder,
+            target_decoder=self.evaluation_decoder
+        )
+
+    def _conv_construct(self, input_size):
+        deep_conv = nn.Sequential(
+            # consider adding batch norm?
+            Lookahead(input_size, context=self.model_cfg.lookahead_context),
+            nn.Hardtanh(0, 20, inplace=True)
+        )
+
+        fully_connected = nn.Sequential(
+            nn.BatchNorm1d(input_size),
+            nn.Linear(input_size, len(self.labels), bias=False)
+        )
+
+        fc = nn.Sequential(
+            SequenceWise(fully_connected),
+        )
+
+        return deep_conv, fc
+
+    def _rnn_construct(self, input_size):
+        rnns = nn.Sequential(
             BatchRNN(
-                input_size=rnn_input_size,
+                input_size=input_size,
                 hidden_size=self.model_cfg.hidden_size,
                 rnn_type=self.model_cfg.rnn_type.value,
                 bidirectional=self.bidirectional,
@@ -186,30 +223,20 @@ class DeepSpeech(pl.LightningModule):
             )
         )
 
-        self.lookahead = nn.Sequential(
-            # consider adding batch norm?
+        lookahead = nn.Sequential(
             Lookahead(self.model_cfg.hidden_size, context=self.model_cfg.lookahead_context),
             nn.Hardtanh(0, 20, inplace=True)
         ) if not self.bidirectional else None
 
         fully_connected = nn.Sequential(
             nn.BatchNorm1d(self.model_cfg.hidden_size),
-            nn.Linear(self.model_cfg.hidden_size, num_classes, bias=False)
+            nn.Linear(self.model_cfg.hidden_size, len(self.labels), bias=False)
         )
-        self.fc = nn.Sequential(
+        fc = nn.Sequential(
             SequenceWise(fully_connected),
         )
-        self.inference_softmax = InferenceBatchSoftmax()
-        self.criterion = CTCLoss(blank=self.labels.index('_'), reduction='sum', zero_infinity=True)
-        self.evaluation_decoder = GreedyDecoder(self.labels)  # Decoder used for validation
-        self.wer = WordErrorRate(
-            decoder=self.evaluation_decoder,
-            target_decoder=self.evaluation_decoder
-        )
-        self.cer = CharErrorRate(
-            decoder=self.evaluation_decoder,
-            target_decoder=self.evaluation_decoder
-        )
+
+        return rnns, lookahead, fc
 
     def forward(self, x, lengths):
         lengths = lengths.cpu().int()
@@ -220,11 +247,14 @@ class DeepSpeech(pl.LightningModule):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # Collapse feature dimension
         x = x.transpose(1, 2).transpose(0, 1).contiguous()  # TxNxH
 
-        for rnn in self.rnns:
-            x = rnn(x, output_lengths)
+        if self.convolutional:
+            x = self.deep_conv(x)
+        else:
+            for rnn in self.rnns:
+                x = rnn(x, output_lengths)
 
-        if not self.bidirectional:  # no need for lookahead layer in bidirectional
-            x = self.lookahead(x)
+            if not self.bidirectional:  # no need for lookahead layer in bidirectional
+                x = self.lookahead(x)
 
         x = self.fc(x)
         x = x.transpose(0, 1)
