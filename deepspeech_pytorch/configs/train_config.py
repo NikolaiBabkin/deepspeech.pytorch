@@ -46,8 +46,8 @@ class DataConfig:
 @dataclass
 class BiDirectionalConfig:
     rnn_type: RNNType = RNNType.lstm  # Type of RNN to use in model
-    hidden_size: int = 1024  # Hidden size of RNN Layer
-    hidden_layers: int = 5  # Number of RNN layers
+    hidden_size: int = 64  # Hidden size of RNN Layer
+    hidden_layers: int = 2  # Number of RNN layers
 
 
 @dataclass

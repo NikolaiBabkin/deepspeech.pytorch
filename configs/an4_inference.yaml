@@ -1,0 +1,5 @@
+# @package _global_
+test_path: data/an4_train_manifest_small.json
+model:
+  model_path: outputs/2021-02-05/17-04-36/model_an4/epoch=2-step=11.ckpt
+  cuda: False
