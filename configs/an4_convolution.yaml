@@ -12,6 +12,6 @@ trainer:
   checkpoint_callback: True
 checkpoint:
   save_top_k: 1
-  monitor: "wer"
+  monitor: "cer"
   verbose: True
   dirpath: model_an4_conv/

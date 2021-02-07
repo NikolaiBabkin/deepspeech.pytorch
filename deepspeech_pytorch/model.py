@@ -136,19 +136,52 @@ class Lookahead(nn.Module):
 
 
 class BatchConv(nn.Module):
-    def __init__(self, input_size, lookahead_context):
+    def __init__(self, input_size, kernel_size):
         super(BatchConv, self).__init__()
         self.input_size = input_size
-        self.lookahead_context = lookahead_context
-        self.conv = nn.Sequential(
+        self.kernel_size = kernel_size
+        self.stride = 1
+
+        self.norm = nn.Sequential(
             SequenceWise(nn.BatchNorm1d(self.input_size)),
-            Lookahead(self.input_size, context=self.lookahead_context),
-            nn.Hardtanh(0, 20, inplace=True)
         )
 
+        self.pad = (0, self.kernel_size - 1)
+        self.conv = nn.Conv1d(
+            self.input_size,
+            self.input_size,
+            kernel_size=self.kernel_size,
+            stride=self.stride,
+            groups=self.input_size,
+            padding=0,
+            bias=False
+        )
+
+        self.activation = nn.Hardtanh(0, 20, inplace=True)
+
     def forward(self, x):
+        x = self.norm(x)
+        x = x.transpose(0, 1).transpose(1, 2)
+        x = F.pad(x, pad=self.pad, value=0)
         x = self.conv(x)
+        x = x.transpose(1, 2).transpose(0, 1).contiguous()
+        x = self.activation(x)
         return x
+
+# class BatchConv(nn.Module):
+#     def __init__(self, input_size, lookahead_context):
+#         super(BatchConv, self).__init__()
+#         self.input_size = input_size
+#         self.lookahead_context = lookahead_context
+#         self.conv = nn.Sequential(
+#             SequenceWise(nn.BatchNorm1d(self.input_size)),
+#             Lookahead(self.input_size, context=self.lookahead_context),
+#             nn.Hardtanh(0, 20, inplace=True)
+#         )
+#
+#     def forward(self, x):
+#         x = self.conv(x)
+#         return x
 
 
 class DeepSpeech(pl.LightningModule):
@@ -203,13 +236,11 @@ class DeepSpeech(pl.LightningModule):
         )
 
     def _conv_construct(self, input_size):
-        # deep_conv = BatchConv(input_size, self.model_cfg.lookahead_context)
-
         deep_conv = nn.Sequential(*(
-                BatchConv(input_size,
-                          self.model_cfg.lookahead_context)
-                for _ in range(self.model_cfg.depth)
-            ))
+            BatchConv(input_size,
+                      self.model_cfg.kernel_size,)
+            for _ in range(self.model_cfg.depth)
+        ))
 
         fully_connected = nn.Sequential(
             nn.BatchNorm1d(input_size),
