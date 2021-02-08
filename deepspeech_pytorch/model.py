@@ -136,17 +136,28 @@ class Lookahead(nn.Module):
 
 
 class BatchConv(nn.Module):
-    def __init__(self, input_size, kernel_size):
+    # lookahead: https://arxiv.org/pdf/1609.03193.pdf
+    # wav2letter: http://research.baidu.com/Public/uploads/5ac0504e3ed84.pdf
+    def __init__(self, input_size, kernel_size, algorithm):
         super(BatchConv, self).__init__()
         self.input_size = input_size
         self.kernel_size = kernel_size
         self.stride = 1
+        self.algorithm = algorithm
 
         self.norm = nn.Sequential(
             SequenceWise(nn.BatchNorm1d(self.input_size)),
         )
 
-        self.pad = (0, self.kernel_size - 1)
+        if self.algorithm == 'lookahead':
+            self.pad = (0, self.kernel_size - 1)
+        elif self.algorithm == 'wav2letter':
+            if self.kernel_size // 2 == 0:
+                raise AttributeError('kernel_size must be odd')
+            _pad = (self.kernel_size - 1) // 2
+            self.pad = (_pad, _pad)
+        else:
+            raise AttributeError('model.algorithm must be lookahead or wav2letter')
         self.conv = nn.Conv1d(
             self.input_size,
             self.input_size,
@@ -238,7 +249,8 @@ class DeepSpeech(pl.LightningModule):
     def _conv_construct(self, input_size):
         deep_conv = nn.Sequential(*(
             BatchConv(input_size,
-                      self.model_cfg.kernel_size,)
+                      self.model_cfg.kernel_size,
+                      self.model_cfg.algorithm)
             for _ in range(self.model_cfg.depth)
         ))
 

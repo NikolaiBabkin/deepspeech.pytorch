@@ -46,8 +46,9 @@ class DataConfig:
 @dataclass
 class ConvolutionConfig:
     lookahead_context: int = 20  # The lookahead context for convolution after RNN layers
-    kernel_size: int = 5
+    kernel_size: int = 5  # Must be odd, kernel_size = 2 * n + 1
     depth: int = 5
+    algorithm: str = 'wav2letter'   # 'lookahead'
 
 
 @dataclass
@@ -95,6 +96,7 @@ class DeepSpeechTrainerConf(TrainerConf):
 @dataclass
 class DeepSpeechConfig:
     defaults: List[Any] = field(default_factory=lambda: defaults)
+    # defaults: Any = MISSING
     optim: Any = MISSING
     model: Any = MISSING
     checkpoint: Any = MISSING

@@ -32,5 +32,5 @@ def hydra_main_debug(cfg: DeepSpeechConfig):
 
 
 if __name__ == '__main__':
-    hydra_main_debug()
-
+    # hydra_main_debug()
+    hydra_main()
