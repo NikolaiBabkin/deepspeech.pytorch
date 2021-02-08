@@ -179,21 +179,6 @@ class BatchConv(nn.Module):
         x = self.activation(x)
         return x
 
-# class BatchConv(nn.Module):
-#     def __init__(self, input_size, lookahead_context):
-#         super(BatchConv, self).__init__()
-#         self.input_size = input_size
-#         self.lookahead_context = lookahead_context
-#         self.conv = nn.Sequential(
-#             SequenceWise(nn.BatchNorm1d(self.input_size)),
-#             Lookahead(self.input_size, context=self.lookahead_context),
-#             nn.Hardtanh(0, 20, inplace=True)
-#         )
-#
-#     def forward(self, x):
-#         x = self.conv(x)
-#         return x
-
 
 class DeepSpeech(pl.LightningModule):
     def __init__(self,
