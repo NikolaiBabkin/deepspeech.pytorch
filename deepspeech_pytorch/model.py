@@ -155,6 +155,7 @@ class DeepSpeech(pl.LightningModule):
         out = out.log_softmax(-1)
 
         loss = self.criterion(out, targets, output_sizes, target_sizes)
+        self.log('CTCLoss', loss, prog_bar=True, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
