@@ -6,7 +6,6 @@ from deepspeech_pytorch.configs.train_config import DeepSpeechConfig, AdamConfig
     UniDirectionalConfig, GCSCheckpointConfig, ConvolutionConfig
 from deepspeech_pytorch.training import train
 
-from omegaconf import OmegaConf
 
 cs = ConfigStore.instance()
 cs.store(name="config", node=DeepSpeechConfig)
@@ -24,13 +23,5 @@ def hydra_main(cfg: DeepSpeechConfig):
     train(cfg=cfg)
 
 
-@hydra.main(config_name="config")
-def hydra_main_debug(cfg: DeepSpeechConfig):
-    update_conf = OmegaConf.load('/Users/a18249761/faang_prep/Smarsh/deepspeech.pytorch/configs/an4_convolution.yaml')
-    merged_conf = OmegaConf.merge(cfg, update_conf)
-    train(cfg=merged_conf)
-
-
 if __name__ == '__main__':
-    # hydra_main_debug()
     hydra_main()

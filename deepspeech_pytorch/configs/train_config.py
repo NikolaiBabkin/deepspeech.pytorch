@@ -45,10 +45,9 @@ class DataConfig:
 
 @dataclass
 class ConvolutionConfig:
-    lookahead_context: int = 20  # The lookahead context for convolution after RNN layers
     kernel_size: int = 5  # Must be odd, kernel_size = 2 * n + 1
     depth: int = 5
-    algorithm: str = 'wav2letter'   # 'lookahead'
+    algorithm: str = 'wav2letter'   # 'lookahead', 'wav2letter'
 
 
 @dataclass
